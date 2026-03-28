@@ -22,6 +22,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$SCRIPT_DIR"
 WEB_ROOT="/var/www/html"
 BRANCH="main"
+SUDO_CMD="sudo"
 
 # ── Argument parsing ─────────────────────────────────────────────────────────
 usage() {
@@ -44,9 +45,22 @@ done
 # ── Helpers ──────────────────────────────────────────────────────────────────
 log()  { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 err()  { log "ERROR: $*" >&2; exit 1; }
+run_as_root() {
+  if [[ -n "$SUDO_CMD" ]]; then
+    "$SUDO_CMD" "$@"
+  else
+    "$@"
+  fi
+}
 
 # ── Pre-flight checks ─────────────────────────────────────────────────────────
-for cmd in git node npm rsync; do
+if [[ "$(id -u)" -eq 0 ]]; then
+  SUDO_CMD=""
+elif ! command -v sudo &>/dev/null; then
+  err "'sudo' is required when not running as root."
+fi
+
+for cmd in git node npm rsync nginx systemctl; do
   command -v "$cmd" &>/dev/null || err "'$cmd' is not installed or not in PATH."
 done
 
@@ -76,13 +90,16 @@ npm run build          # produces dist/
 log "Syncing dist/ → $WEB_ROOT …"
 if [[ ! -d "$WEB_ROOT" ]]; then
   log "Web root '$WEB_ROOT' does not exist — creating it (may require sudo)."
-  sudo mkdir -p "$WEB_ROOT"
+  run_as_root mkdir -p "$WEB_ROOT"
 fi
 
-sudo rsync -av --delete "$REPO_DIR/dist/" "$WEB_ROOT/"
+run_as_root rsync -av --delete "$REPO_DIR/dist/" "$WEB_ROOT/"
 
 # ── Step 5: Reload nginx ──────────────────────────────────────────────────────
+log "Validating nginx configuration …"
+run_as_root nginx -t
+
 log "Reloading nginx …"
-sudo systemctl reload nginx
+run_as_root systemctl reload nginx
 
 log "=== Deployment complete! Site is live at $WEB_ROOT ==="
