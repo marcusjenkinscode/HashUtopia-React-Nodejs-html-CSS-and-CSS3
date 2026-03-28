@@ -29,7 +29,7 @@
 set -euo pipefail
 
 # ── Defaults ─────────────────────────────────────────────────────────────────
-REPO_URL=""
+REPO_URL="https://github.com/marcusjenkinscode/HashUtopia-React-Nodejs-html-CSS-and-CSS3.git"
 REPO_DIR="/opt/hashutopia"
 WEB_ROOT="/var/www/hashutopia"
 SERVER_NAME="_"
